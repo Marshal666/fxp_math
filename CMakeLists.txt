@@ -75,14 +75,25 @@ if(FXP_BUILD_TESTS)
     endforeach()
     add_executable(fxp_reference_writer tools/reference_writer.cpp)
     target_link_libraries(fxp_reference_writer PRIVATE fxp::fxp)
+    # The canonical outputs always come from the standard C++ scalar backend,
+    # independently of the configuration used to test optimized implementations.
+    target_compile_definitions(fxp_reference_writer PRIVATE FXP_PORTABLE_ONLY=1 FXP_DISABLE_SSE2=1)
     fxp_project_options(fxp_reference_writer)
     include(GoogleTest)
     gtest_discover_tests(fxp_tests DISCOVERY_TIMEOUT 60)
+    add_library(fxp_compile_accept OBJECT EXCLUDE_FROM_ALL tests/compile_fail/accept.cpp)
+    target_link_libraries(fxp_compile_accept PRIVATE fxp::fxp)
     foreach(case float_construct double_assign float_add float_cast)
+        # These intentionally invalid targets are never part of a normal build.
+        # Reuse the actual toolchain instead of maintaining nested CMake caches.
+        add_library(fxp_reject_${case} OBJECT EXCLUDE_FROM_ALL tests/compile_fail/${case}.cpp)
+        target_link_libraries(fxp_reject_${case} PRIVATE fxp::fxp)
         add_test(NAME compile_reject_${case} COMMAND ${CMAKE_COMMAND}
-            -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DBINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/reject_${case}
-            -DCXX_COMPILER=${CMAKE_CXX_COMPILER} -DCASE=${case} -DGENERATOR=${CMAKE_GENERATOR}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RejectFloat.cmake)
+            "-DBINARY_DIR=${CMAKE_BINARY_DIR}" "-DTARGET=fxp_reject_${case}" "-DCONFIG=$<CONFIG>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RejectFloat.cmake")
+        # Multiple independent build-tool processes must not mutate the same
+        # build tree simultaneously when CTest runs with --parallel.
+        set_tests_properties(compile_reject_${case} PROPERTIES RESOURCE_LOCK fxp_compile_reject_build)
     endforeach()
 endif()
 if(FXP_BUILD_EXAMPLES)

@@ -1,20 +1,34 @@
 # Validation record
 
 Verified on Linux x86-64 with CMake 3.28.3 and GoogleTest 1.15.2. Each full suite
-contains **27 CTest tests**, including **51,004 bit-exact reference cases** and
+contains **29 CTest tests**, including **51,004 bit-exact reference cases** and
 the same 51,004 inputs checked against independent expected values. Exact
 operations allow zero error; transcendental oracle tolerances are documented in
 [numerics.md](numerics.md).
 
 | Configuration | Result |
 | --- | --- |
-| GCC 13.3.0, Release, native wide arithmetic, SSE2 enabled | 27/27 passed |
-| Clang 18.1.3, Release, native wide arithmetic, SSE2 enabled | 27/27 passed |
-| GCC 13.3.0, Release, portable wide arithmetic, SSE2 disabled | 27/27 passed |
-| GCC 13.3.0, Debug, portable wide arithmetic, SSE2 enabled, AddressSanitizer + UndefinedBehaviorSanitizer | 27/27 passed |
+| GCC 13.3.0, Debug, Ninja, native wide arithmetic, SSE2 enabled | 29/29 passed |
+| Clang 18.1.3, Release, native wide arithmetic, SSE2 enabled | 29/29 passed |
+| GCC 13.3.0, Release, portable wide arithmetic, SSE2 disabled | 29/29 passed |
+| GCC 13.3.0, Debug, portable wide arithmetic, SSE2 enabled, AddressSanitizer + UndefinedBehaviorSanitizer | 29/29 passed |
 | Separate consumer using `add_subdirectory` | Built and ran |
 | Separate consumer using an installed `find_package(fxp)` package | Built and ran |
 | Every public header included independently | Compiled with GCC and Clang |
+| GCC 13.3.0, Ninja Multi-Config Debug, build path containing spaces | 4/4 compile-rejection tests passed |
+
+The reference writer is now forced to use portable scalar C++, with native wide
+arithmetic and the SSE2 implementation disabled. Its regenerated results match
+all 51,004 original reference rows exactly. The two additional batch tests compare
+scalar/SSE2 addition and subtraction directly against the frozen reference file.
+
+The reported VS Code failures were reproduced after the main build changed from
+Unix Makefiles to Ninja while old nested compile-rejection caches remained.
+Rejection tests now reuse the main build and no longer create or consume those
+nested caches. Their positive control also verifies that unrelated floating point
+code can compile in a translation unit which includes this library. The rejection
+harness was also checked to fail when the selected target unexpectedly compiles
+or when the target does not exist, avoiding false passes for those situations.
 
 LeakSanitizer was disabled for the local sanitizer run with
 `ASAN_OPTIONS=detect_leaks=0`: this execution environment uses tracing, which

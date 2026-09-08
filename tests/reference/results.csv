@@ -1,4 +1,4 @@
-# fxp_math bit-exact reference v1; format,operation,a,b,result,auxiliary,tolerance
+# fxp_math bit-exact reference v1 (portable scalar C++); format,operation,a,b,result,auxiliary,tolerance
 16,add,-9223372036854775808,-9223372036854775808,-9223372036854775808,0,0
 16,sub,-9223372036854775808,-9223372036854775808,0,0,0
 16,mul,-9223372036854775808,-9223372036854775808,9223372036854775807,0,0

@@ -103,8 +103,19 @@ mpmath 1.3.0 at 110 decimal digits. A fixed random seed and explicit boundary
 cases make generation reproducible. Continued-fraction approximations of pi
 also exercise extremely large angles close to tangent poles. The corpus includes
 malformed/domain-error cases.
-`results.csv` freezes the actual implementation's answers after the independent
-oracle test succeeds. It is the cross-platform bit compatibility contract.
+`results.csv` freezes the **portable scalar C++ implementation's** answers after
+the independent oracle test succeeds. It is the cross-platform bit compatibility
+contract. Its writer target unconditionally defines `FXP_PORTABLE_ONLY=1` and
+`FXP_DISABLE_SSE2=1`, and the writer refuses to compile without these definitions.
+Thus neither compiler-native wide arithmetic nor the SSE2 implementation can
+generate the baseline, even when they are enabled for the rest of the build.
+
+The original baseline used scalar operators with native wide integer arithmetic
+enabled. Regeneration using the enforced standard C++ scalar backend reproduced
+all 51,004 existing rows exactly; only the file's provenance header changed.
+The optimized scalar implementation is tested against the same file. Batch
+tests also feed its addition/subtraction rows directly through the SSE2 backend
+when available and require exact equality, in addition to the aliasing tests.
 
 Normal builds need neither Python nor mpmath. To deliberately create a new
 reference version after reviewing a numeric algorithm change:
