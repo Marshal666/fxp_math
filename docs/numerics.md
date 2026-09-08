@@ -117,6 +117,9 @@ The optimized scalar implementation is tested against the same file. Batch
 tests also feed its addition/subtraction rows directly through the SSE2 backend
 when available and require exact equality, in addition to the aliasing tests.
 
+The `atan2(0, 0)` contract now returns exact zero. Its two reference rows (one
+per format) changed from `domain` to `0`; all other reference results are unchanged.
+
 Normal builds need neither Python nor mpmath. To deliberately create a new
 reference version after reviewing a numeric algorithm change:
 

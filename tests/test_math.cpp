@@ -33,6 +33,11 @@ TYPED_TEST(MathTest, IdentitiesAndRoots) {
     EXPECT_EQ(fxp::asin(T{}), T{}); EXPECT_EQ(fxp::atan(T{}), T{});
     EXPECT_EQ(fxp::acos(T(1)), T{}); EXPECT_EQ(fxp::acos(T(-1)), fxp::pi_v<T>);
     EXPECT_EQ(fxp::atan2(T{}, T(-1)), fxp::pi_v<T>);
+    EXPECT_EQ(fxp::atan2(T{}, T{}).raw_value(), 0);
+    EXPECT_EQ(fxp::atan2(T{}, 0).raw_value(), 0);
+    EXPECT_EQ(fxp::atan2(0, T{}).raw_value(), 0);
+    EXPECT_EQ(fxp::atan2(T{}, fine{}).raw_value(), 0);
+    EXPECT_EQ(fxp::atan2(fine{}, T{}).raw_value(), 0);
     EXPECT_EQ(fxp::exp(T{}), T(1)); EXPECT_EQ(fxp::exp2(T{}), T(1)); EXPECT_EQ(fxp::expm1(T{}), T{});
     EXPECT_EQ(fxp::log(T(1)), T{}); EXPECT_EQ(fxp::log2(T(8)), T(3)); EXPECT_EQ(fxp::log10(T(1000)), T(3));
     EXPECT_EQ(fxp::log1p(T{}), T{});
@@ -59,7 +64,6 @@ TYPED_TEST(MathTest, DomainErrors) {
     EXPECT_THROW((void)fxp::log1p(T(-1)), std::domain_error);
     EXPECT_THROW((void)fxp::asin(T(2)), std::domain_error);
     EXPECT_THROW((void)fxp::acos(T(-2)), std::domain_error);
-    EXPECT_THROW((void)fxp::atan2(T{}, T{}), std::domain_error);
     EXPECT_THROW((void)fxp::pow(T(-2), T::from_string("0.5")), std::domain_error);
     EXPECT_THROW((void)fxp::pow(T{}, -1), std::domain_error);
     EXPECT_THROW((void)fxp::remainder(T(1), T{}), std::domain_error);

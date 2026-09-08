@@ -148,7 +148,7 @@ a nearest-even quotient; `remquo` writes the signed low **seven** quotient bits.
 `frexp` returns a rounded fixed mantissa in [0.5, 1) in magnitude, with a signed
 exponent; fixed mantissa precision can make reconstruction lossy for large inputs.
 
-`atan2(0, 0)` throws. Logarithms require positive arguments; `log1p` requires
+`atan2(0, 0)` returns exactly zero. Logarithms require positive arguments; `log1p` requires
 `x > -1`; `sqrt` requires `x >= 0`; `asin` and `acos` require `-1 <= x <= 1`.
 `pow(0, 0)` is one. A negative base requires an integer exponent. Zero to a
 negative power throws. Integer powers use exponentiation by squaring, rounding

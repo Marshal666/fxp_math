@@ -49,7 +49,7 @@ inline std::int64_t atan_unit(std::int64_t x) {
     return shifted ? quarter_pi + sum : sum;
 }
 inline std::int64_t atan2_kernel(std::uint64_t y, bool y_negative, std::uint64_t x, bool x_negative) {
-    if (!x && !y) throw std::domain_error("fixed point atan2(0, 0)");
+    if (!x && !y) return 0;
     auto angle = y <= x ? atan_unit(ratio60(y, x)) : half_pi - atan_unit(ratio60(x, y));
     if (x_negative) angle = pi - angle;
     return y_negative ? -angle : angle;

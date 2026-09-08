@@ -87,10 +87,13 @@ def exact(f, op, a, b=0):
 
 def math_case(f, op, a, b=0):
     s = 1 << f
+    if op == 'atan2' and a == b == 0:
+        emit(f, op, a, b, 0)
+        return
     x, y = mp.mpf(a) / s, mp.mpf(b) / s
     if ((op in ('log', 'log2', 'log10') and a <= 0) or
         (op == 'log1p' and a <= -s) or (op == 'sqrt' and a < 0) or
-        (op in ('asin', 'acos') and abs(a) > s) or (op == 'atan2' and a == b == 0) or
+        (op in ('asin', 'acos') and abs(a) > s) or
         (op == 'pow' and ((a < 0 and b % s) or (a == 0 and b < 0)))):
         emit(f, op, a, b, 'domain')
         return
