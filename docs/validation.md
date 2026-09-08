@@ -42,35 +42,29 @@ Linux/Clang, and macOS/Apple Clang, including portable fallbacks. No remote CI
 run is claimed by this record. SIMD selection is compile-time, and the default
 CI jobs use the architecture provided by each runner.
 
-## Benchmark snapshot
+## Comparative benchmarks
 
-Illustrative measurements from the included benchmark on an Intel Core Ultra 7
-165H with GCC 13.3.0 Release (`-O3`, without `-march=native`). Values are elapsed
-nanoseconds per output element; arrays contain 4,096 ordinary game-scale values.
-These are local microbenchmarks and are sensitive to CPU scheduling, frequency,
-cache residency, and concurrent work. They are not latency guarantees or a
-measurement of full-range inputs. Compiler auto-vectorization is permitted for
-the scalar loops.
+The [benchmark results](benchmark-results.md) compare `real`, `fine`, `float`, and
+`double` across 35 operations, using identical representable inputs. The report
+contains median timings, relative costs, compiler/CPU metadata, input domains,
+and methodology. [Raw timings and checksums](benchmark-samples.csv) preserve all
+individual samples for inspection.
 
-| Operation | Q48.16 ns/value | Q32.32 ns/value |
-| --- | ---: | ---: |
-| Batch add, scalar | 0.533 | 0.524 |
-| Batch add, automatic/SSE2 | 0.537 | 0.525 |
-| Batch subtract, scalar | 0.581 | 0.632 |
-| Batch subtract, automatic/SSE2 | 0.574 | 0.531 |
-| Multiply | 2.310 | 2.092 |
-| Divide | 2.953 | 4.565 |
-| Sine | 166.975 | 153.085 |
-| Square root | 108.899 | 155.198 |
-| Exponential | 147.727 | 144.417 |
-| Natural logarithm | 188.181 | 182.583 |
+The recorded run used GCC 13.3.0 Release on an Intel Core Ultra 7 165H, pinned
+to logical CPU 1: 4,096 elements, 11 samples, and a 20 ms calibration target.
+All 1,540 sample rows and the report's medians, ratios, and variability ranges
+were checked against the raw timings. GCC and Clang 18.1.3 also completed short
+runs covering every operation and type with 257 elements, exercising batch
+tails. Both benchmark builds compiled without warnings. The ordinary 29-test
+suite passed after the benchmark/CMake changes; numerical library code was
+unchanged.
 
-The scalar and SSE2 batch outputs produce identical checksums. This run shows
-that hand-written SSE2 is not automatically faster than the compiler's scalar
-loop optimization; retain the selectable backends and measure on the target
-hardware. Very large trig angles require more reduction work, near-pole tangent
-uses an additional wide division, and portable division can be slower than the
-native wide path.
+The comparison uses Release builds and separate repetitions for each type's
+calibrated timing interval. It reports array throughput, including compiler
+auto-vectorization, and distinguishes numerical semantics and storage sizes.
+Both the ordinary operator and explicit batch add/subtract paths must produce
+identical checksums. The updated suite uses different inputs and a different
+sampling method from the original fixed-only benchmark snapshot.
 
 ## Reproducing checks
 

@@ -12,7 +12,7 @@ endif()
 option(FXP_BUILD_TESTS "Build the GoogleTest suite" ${FXP_TOP_LEVEL})
 option(FXP_FETCH_GOOGLETEST "Download pinned GoogleTest if no package is installed" ON)
 option(FXP_BUILD_EXAMPLES "Build examples" ${FXP_TOP_LEVEL})
-option(FXP_BUILD_BENCHMARKS "Build a small standalone benchmark" OFF)
+option(FXP_BUILD_BENCHMARKS "Build fixed/float/double comparison benchmarks" OFF)
 option(FXP_PORTABLE_ONLY "Use only standard C++ two-word wide arithmetic" OFF)
 option(FXP_DISABLE_SSE2 "Disable SSE2 batch operations" OFF)
 option(FXP_ENABLE_SANITIZERS "Enable address and undefined behavior sanitizers" OFF)
@@ -104,6 +104,14 @@ endif()
 if(FXP_BUILD_BENCHMARKS)
     add_executable(fxp_benchmark benchmarks/benchmark.cpp)
     target_link_libraries(fxp_benchmark PRIVATE fxp::fxp)
+    set(FXP_BENCHMARK_CONFIGURATION_FLAGS
+        "$<$<CONFIG:Debug>:${CMAKE_CXX_FLAGS_DEBUG}>$<$<CONFIG:Release>:${CMAKE_CXX_FLAGS_RELEASE}>$<$<CONFIG:RelWithDebInfo>:${CMAKE_CXX_FLAGS_RELWITHDEBINFO}>$<$<CONFIG:MinSizeRel>:${CMAKE_CXX_FLAGS_MINSIZEREL}>")
+    configure_file(benchmarks/benchmark_config.hpp.in
+        "${CMAKE_CURRENT_BINARY_DIR}/benchmark_config.hpp.in" @ONLY)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/benchmark/$<CONFIG>/benchmark_config.hpp"
+        INPUT "${CMAKE_CURRENT_BINARY_DIR}/benchmark_config.hpp.in")
+    target_include_directories(fxp_benchmark PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/benchmark/$<CONFIG>")
+    target_compile_definitions(fxp_benchmark PRIVATE FXP_BENCHMARK_CONFIG="$<CONFIG>")
     fxp_project_options(fxp_benchmark)
 endif()
 

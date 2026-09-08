@@ -214,9 +214,29 @@ prefix of the output. All feature macros must be consistent across translation
 units. The portable-wide and SSE2 options are independent.
 
 The compiler can auto-vectorize scalar loops, so SSE2 is not necessarily faster
-on every workload. Build the included benchmark with
-`-DFXP_BUILD_BENCHMARKS=ON`, then run `build/fxp_benchmark` (or the executable in
-`build/Release` on Visual Studio). See [local measurements](docs/validation.md).
+on every workload. The benchmark compares `real`, `fine`, `float`, and `double`
+across **35 operations**, including all requested transcendental/root functions,
+ordinary arithmetic, comparisons, rounding, and automatic batch add/subtract.
+See the [measured comparison](docs/benchmark-results.md) and
+[raw samples](docs/benchmark-samples.csv).
+
+Build and generate a fresh Markdown report:
+
+```sh
+cmake -S . -B build-benchmarks -DCMAKE_BUILD_TYPE=Release \
+  -DFXP_BUILD_BENCHMARKS=ON -DFXP_BUILD_TESTS=OFF -DFXP_BUILD_EXAMPLES=OFF
+cmake --build build-benchmarks --config Release --parallel
+./build-benchmarks/fxp_benchmark --samples 7 --min-ms 10 \
+  --markdown docs/benchmark-results.md --csv docs/benchmark-samples.csv
+```
+
+With Visual Studio, run `build-benchmarks/Release/fxp_benchmark.exe`.
+Use `--help` for input count and metadata options. The suite uses identical,
+exactly representable inputs for all four types, excludes setup from timing,
+warms up each case, calibrates repetition counts, and reports median array
+throughput. The Markdown file records input ranges, build flags, and comparison
+limits. See [benchmark usage and methodology](benchmarks/README.md) for details.
+Benchmark floating point code stays in the benchmark executable.
 
 ## Determinism tests
 
