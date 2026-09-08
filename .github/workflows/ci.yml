@@ -1,0 +1,34 @@
+name: deterministic fixed point
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  compilers:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, compiler: g++, portable: OFF, sse2: OFF }
+          - { os: ubuntu-24.04, compiler: g++, portable: ON, sse2: ON }
+          - { os: ubuntu-24.04, compiler: clang++, portable: OFF, sse2: OFF }
+          - { os: ubuntu-24.04, compiler: clang++, portable: ON, sse2: ON }
+          - { os: windows-2022, compiler: cl, portable: OFF, sse2: OFF }
+          - { os: windows-2022, compiler: cl, portable: ON, sse2: ON }
+          - { os: macos-14, compiler: clang++, portable: OFF, sse2: OFF }
+          - { os: macos-14, compiler: clang++, portable: ON, sse2: ON }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.compiler }} -DCMAKE_BUILD_TYPE=Release -DFXP_PORTABLE_ONLY=${{ matrix.portable }} -DFXP_DISABLE_SSE2=${{ matrix.sse2 }} -DFXP_BUILD_BENCHMARKS=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+      - name: Require all reference and unit tests to pass
+        run: ctest --test-dir build -C Release --output-on-failure --parallel 4
+      - name: Install
+        run: cmake --install build --config Release --prefix installed
+  sanitizers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DFXP_PORTABLE_ONLY=ON -DFXP_ENABLE_SANITIZERS=ON
+      - run: cmake --build build --parallel 4
+      - run: ctest --test-dir build --output-on-failure --parallel 2
