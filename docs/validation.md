@@ -41,6 +41,18 @@ code can compile in a translation unit which includes this library. The rejectio
 harness was also checked to fail when the selected target unexpectedly compiles
 or when the target does not exist, avoiding false passes for those situations.
 
+The later Windows CI failure reported MSVC C2059 in the vector constructor
+constraints while compiling the valid control. Main project targets enabled
+`/permissive-`, but the control used the consumer defaults. Those constraints
+now use C++17 `std::conjunction` instead of fold expressions in default template
+arguments. The valid control is also part of the normal build; Windows builds
+it with both the default parser and [conformance mode](https://learn.microsoft.com/en-us/cpp/build/reference/permissive-standards-conformance).
+Its compile-time checks cover component and prefix constructors, mixed formats,
+copy/default construction, floating-point rejection, and incorrect argument
+counts. This keeps the public headers usable without requiring `/permissive-`.
+After this fix, GCC native Debug, GCC portable Release, and Clang native Release
+each passed all 45 tests locally. Windows confirmation awaits the next CI run.
+
 LeakSanitizer was disabled for the local sanitizer run with
 `ASAN_OPTIONS=detect_leaks=0`: this execution environment uses tracing, which
 LeakSanitizer does not support. Address and undefined behavior checks remained

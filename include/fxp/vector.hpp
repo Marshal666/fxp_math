@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <type_traits>
 
 namespace fxp {
 namespace geometry_detail {
@@ -96,8 +97,9 @@ template <class T, std::size_t N> class vector : public geometry_detail::vector_
     using value_type = T;
     static constexpr std::size_t size = N;
     constexpr vector() = default;
+    // Avoid fold expressions in default template arguments for MSVC's permissive parser.
     template <class... A,
-              std::enable_if_t<sizeof...(A) == N && (std::is_convertible_v<A, T> && ...), int> = 0>
+              std::enable_if_t<sizeof...(A) == N && std::conjunction_v<std::is_convertible<A, T>...>, int> = 0>
     constexpr vector(A... values) {
         const std::array<T, N> a{T(values)...};
         for (std::size_t i = 0; i < N; ++i)
@@ -107,9 +109,9 @@ template <class T, std::size_t N> class vector : public geometry_detail::vector_
         for (std::size_t i = 0; i < N; ++i)
             (*this)[i] = T(value[i]);
     }
-    template <
-        class U, std::size_t M, class... A,
-        std::enable_if_t<(M < N) && M + sizeof...(A) == N && (std::is_convertible_v<A, T> && ...), int> = 0>
+    template <class U, std::size_t M, class... A,
+              std::enable_if_t<(M < N) && M + sizeof...(A) == N &&
+                                   std::conjunction_v<std::is_convertible<A, T>...>, int> = 0>
     constexpr vector(const vector<U, M> &prefix, A... tail) {
         for (std::size_t i = 0; i < M; ++i)
             (*this)[i] = T(prefix[i]);

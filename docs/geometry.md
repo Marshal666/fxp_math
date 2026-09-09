@@ -81,6 +81,31 @@ replace the old global constants.
 
 ## Arithmetic and conventions
 
+### Differences from common library conventions
+
+Math libraries vary, but these Blitzkrieg 2 conventions deserve attention when
+migrating code. The port preserves them:
+
+- Quaternion `a *= b` evaluates `b * a`, reversing the usual compound-assignment
+  order. Quaternion division evaluates `conjugate(b) * a` and assumes a unit
+  divisor; it is not general division by an arbitrary quaternion.
+- Vector `*` means dot product. In 2D, `^` means complex multiplication; in 3D,
+  it means cross product. The original vector `fabs` meant length, and rectangle
+  `fabs(a,b)` meant a projected gap; the port gives those distinct names.
+- Direction codes start at +Y and use a piecewise rational mapping. Equal code
+  increments need not represent equal angular increments.
+- The source's RH view helper negates both Y and Z axes relative to its LH
+  helper. Projections use [0,1] depth, and the direct screen transform includes
+  a half-pixel offset. These are engine conventions, not universal defaults.
+- Boundary inclusion depends on the shape/query: circle tangency is excluded,
+  rectangle/circle tangency is included, and box containment treats X differently
+  from Y/Z. Rectangle length/width inputs are half extents.
+
+The source bugs corrected by the port are listed under
+[Defined fixes and precision](#defined-fixes-and-precision).
+
+### Operations and transforms
+
 Vector `*` vector is a dot product; vector `*` scalar scales each component.
 In **two dimensions**, `a ^ b` and `complex_product(a,b)` multiply complex
 numbers; `cross(a,b)` returns the scalar determinant. In **three dimensions**,
@@ -201,8 +226,8 @@ Line queries recalculate from their public coefficients rather than trusting
 an outdated normalization cache. Vector division divides components directly,
 avoiding a reciprocal that can round to zero first.
 
-Small nonzero decision tolerances are at least one raw unit. Quaternion inverse
-trigonometric arguments are clamped to [-1,1] to handle quantized unit rotations.
+Quaternion inverse trigonometric arguments are clamped to [-1,1] to handle
+quantized unit rotations.
 Zero axes/line normals and degenerate look-at bases are rejected where an
 operation would divide by zero. Normalize and inverse operations with boolean
 failure results retain that form.
@@ -215,6 +240,37 @@ use appropriately scaled coordinates for dot products, intersection predicates,
 and matrix inverses; these are not arbitrary-range exact geometric predicates.
 All such results are deterministic. No bit identity with the original floating
 implementation, nor a universal geometric accuracy bound, is claimed.
+
+### Source tolerances versus fixed-point resolution
+
+The smallest positive `real` value is `real::epsilon()`, exactly
+`2^-16 = 0.0000152587890625`. For `fine`, one raw unit is `2^-32`, approximately
+`2.3283064365e-10`. These are absolute steps, including near zero.
+
+The source's **`1e-8` and `1e-6` tolerances are below one `real` raw unit and
+both round to zero** on direct conversion. The geometry tolerance helper uses
+`max(T::epsilon(), T::from_string(value))` to keep these decisions nonzero.
+Effective thresholds below are expressed in raw units of each format:
+
+| Source value | Used for | `real` raw units | `fine` raw units |
+| --- | --- | ---: | ---: |
+| `1e-8` | Squared-length checks in quaternion angle/axis decomposition and normal `get_angles` | **1 (clamped)** | 43 |
+| `1e-6` | Point-to-segment distance in degenerate-triangle containment | **1 (clamped)** | 4,295 |
+| `1e-4` | `FP_QUAT_EPSILON`: axis validation, quaternion exp/log/slerp; also near-zero direction checks | 7 | 429,497 |
+| `0.001` | Squared-distance check for point containment in an oriented rectangle classified as degenerate | 66 | 4,294,967 |
+
+The `1e-4` and `0.001` values are above `real`'s resolution; they are rounded,
+not raised to the minimum. For example, 7 `real` raw units equal
+`0.0001068115234375`. `fine` retains nonzero approximations of all four values.
+
+The `1e-8` checks compare **squared lengths**: their nominal length scale changes
+from `0.0001` to `sqrt(2^-16) = 0.00390625` in `real`, before intermediate
+rounding. Near-degenerate branch decisions can therefore differ from the source.
+These thresholds are not bounds on total numerical error.
+
+Original quaternion inversion also used `FP_EPSILON2`, whose definition was
+absent from the supplied files, so its original magnitude cannot be confirmed.
+The port requires the computed squared norm to be greater than `T::epsilon()`.
 
 ## Tests and references
 

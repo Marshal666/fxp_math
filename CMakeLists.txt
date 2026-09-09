@@ -85,8 +85,17 @@ if(FXP_BUILD_TESTS)
     fxp_project_options(fxp_geometry_reference_writer)
     include(GoogleTest)
     gtest_discover_tests(fxp_tests DISCOVERY_TIMEOUT 60)
-    add_library(fxp_compile_accept OBJECT EXCLUDE_FROM_ALL tests/compile_fail/accept.cpp)
+    # Build the valid control normally too, so header regressions fail the build.
+    # Intentionally use only public consumer requirements here: on MSVC this
+    # exercises the default parser without our private /permissive- option.
+    add_library(fxp_compile_accept OBJECT tests/compile_fail/accept.cpp)
     target_link_libraries(fxp_compile_accept PRIVATE fxp::fxp)
+    if(MSVC)
+        # Check the same constructor constraints with the conforming parser.
+        add_library(fxp_compile_accept_conforming OBJECT tests/compile_fail/accept.cpp)
+        target_link_libraries(fxp_compile_accept_conforming PRIVATE fxp::fxp)
+        fxp_project_options(fxp_compile_accept_conforming)
+    endif()
     foreach(case float_construct double_assign float_add float_cast)
         # These intentionally invalid targets are never part of a normal build.
         # Reuse the actual toolchain instead of maintaining nested CMake caches.

@@ -252,7 +252,9 @@ Mixed vector arithmetic promotes to `fine`.
 
 See the [geometry API and migration guide](docs/geometry.md) for examples,
 the preserved rotation/boundary conventions, source bug fixes, and numerical
-limits. A separate [portable scalar geometry reference](tests/reference/geometry.csv)
+limits. It also summarizes [unusual source conventions](docs/geometry.md#differences-from-common-library-conventions)
+and [source tolerances below `real`'s resolution](docs/geometry.md#source-tolerances-versus-fixed-point-resolution).
+A separate [portable scalar geometry reference](tests/reference/geometry.csv)
 contains 5,386 cases for exact cross-platform comparison.
 
 ## Determinism tests
