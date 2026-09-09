@@ -1,26 +1,37 @@
 # Validation record
 
 Verified on Linux x86-64 with CMake 3.28.3 and GoogleTest 1.15.2. Each full suite
-contains **29 CTest tests**, including **51,004 bit-exact reference cases** and
-the same 51,004 inputs checked against independent expected values. Exact
+contains **45 CTest tests**, including **51,004 bit-exact scalar reference cases**,
+the same 51,004 inputs checked against independent expected values, and **5,386
+bit-exact geometry cases**. Exact
 operations allow zero error; transcendental oracle tolerances are documented in
 [numerics.md](numerics.md).
 
 | Configuration | Result |
 | --- | --- |
-| GCC 13.3.0, Debug, Ninja, native wide arithmetic, SSE2 enabled | 29/29 passed |
-| Clang 18.1.3, Release, native wide arithmetic, SSE2 enabled | 29/29 passed |
-| GCC 13.3.0, Release, portable wide arithmetic, SSE2 disabled | 29/29 passed |
-| GCC 13.3.0, Debug, portable wide arithmetic, SSE2 enabled, AddressSanitizer + UndefinedBehaviorSanitizer | 29/29 passed |
+| GCC 13.3.0, Debug, Ninja, native wide arithmetic, SSE2 enabled | 45/45 passed |
+| Clang 18.1.3, Release, native wide arithmetic, SSE2 enabled | 45/45 passed |
+| GCC 13.3.0, Release, portable wide arithmetic, SSE2 disabled | 45/45 passed |
+| GCC 13.3.0, Debug, portable wide arithmetic, SSE2 enabled, AddressSanitizer + UndefinedBehaviorSanitizer | 45/45 passed |
 | Separate consumer using `add_subdirectory` | Built and ran |
 | Separate consumer using an installed `find_package(fxp)` package | Built and ran |
 | Every public header included independently | Compiled with GCC and Clang |
 | GCC 13.3.0, Ninja Multi-Config Debug, build path containing spaces | 4/4 compile-rejection tests passed |
 
-The reference writer is now forced to use portable scalar C++, with native wide
-arithmetic and the SSE2 implementation disabled. Its regenerated results match
-all 51,004 original reference rows exactly. The two additional batch tests compare
-scalar/SSE2 addition and subtraction directly against the frozen reference file.
+Both reference writers are forced to use portable scalar C++, with native wide
+arithmetic and the SSE2 implementation disabled. Enforcing this configuration
+originally reproduced all 51,004 scalar reference rows exactly. The later
+`atan2(0, 0)` change updated two rows to return zero; the geometry extension
+does not change any scalar reference rows. Batch tests compare scalar/SSE2
+addition and subtraction directly against the frozen scalar reference file.
+
+The geometry extension was validated on 2026-09-09 using the four configurations
+above. New geometry headers compile independently; all non-template methods of
+the geometry classes are explicitly instantiated for both formats. Tests cover
+identities, matrix/rotation round trips, aliases, degeneracies, boundary rules,
+packing, rasterization, and all 5,386 portable-scalar reference records. See the
+[geometry guide](geometry.md) for preserved conventions, deliberate fixes, and
+the numerical limitations of composite saturated arithmetic.
 
 The reported VS Code failures were reproduced after the main build changed from
 Unix Makefiles to Ninja while old nested compile-rejection caches remained.

@@ -3,6 +3,10 @@
 A C++17, header-only fixed point library for deterministic game simulation.
 The runtime library has no dependencies and performs no floating point arithmetic.
 
+Its [geometry structures and math helpers](docs/geometry.md) are based on
+Blitzkrieg 2's existing math code and are intended as deterministic fixed-point
+replacements using `real` or `fine`, with modernized names.
+
 ```cpp
 #include <fxp/fxp.hpp>
 using fxp::real;
@@ -237,6 +241,19 @@ warms up each case, calibrates repetition counts, and reports median array
 throughput. The Markdown file records input ranges, build flags, and comparison
 limits. See [benchmark usage and methodology](benchmarks/README.md) for details.
 Benchmark floating point code stays in the benchmark executable.
+
+## Geometry
+
+Vectors, matrices, quaternions, planes, lines, segments, circles, rectangles,
+rays, bounds, view/projection helpers, direction codes, packing, and Bresenham
+rasterization are available from `<fxp/fxp.hpp>`. Use `vec3<>`, `mat4<>`, and
+`quat<>` for `real`, or select `fine` explicitly: `vec3<fine>`, `mat4<fine>`.
+Mixed vector arithmetic promotes to `fine`.
+
+See the [geometry API and migration guide](docs/geometry.md) for examples,
+the preserved rotation/boundary conventions, source bug fixes, and numerical
+limits. A separate [portable scalar geometry reference](tests/reference/geometry.csv)
+contains 5,386 cases for exact cross-platform comparison.
 
 ## Determinism tests
 
