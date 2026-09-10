@@ -232,9 +232,10 @@ Zero axes/line normals and degenerate look-at bases are rejected where an
 operation would divide by zero. Normalize and inverse operations with boolean
 failure results retain that form.
 
-Except for the wide length/normalization calculations and direction encoding,
-composite geometry follows the scalar library's rounding and saturation at each
-arithmetic operation. Intermediate products and determinants can saturate or
+Except for wide length/normalization, direction encoding, triangle containment,
+and the source threshold comparisons described below, composite geometry follows
+the scalar library's rounding and saturation at each arithmetic operation.
+Intermediate products and determinants can saturate or
 round to zero even when a final mathematical result would fit. In particular,
 use appropriately scaled coordinates for dot products, intersection predicates,
 and matrix inverses; these are not arbitrary-range exact geometric predicates.
@@ -248,25 +249,28 @@ The smallest positive `real` value is `real::epsilon()`, exactly
 `2.3283064365e-10`. These are absolute steps, including near zero.
 
 The source's **`1e-8` and `1e-6` tolerances are below one `real` raw unit and
-both round to zero** on direct conversion. The geometry tolerance helper uses
-`max(T::epsilon(), T::from_string(value))` to keep these decisions nonzero.
-Effective thresholds below are expressed in raw units of each format:
+both round to zero** on direct conversion. The initial port clamped them to one
+raw unit. Focused accuracy tests found that this did not address intermediate
+rounding errors; see the [tolerance assessment](geometry-tolerances.md).
 
-| Source value | Used for | `real` raw units | `fine` raw units |
-| --- | --- | ---: | ---: |
-| `1e-8` | Squared-length checks in quaternion angle/axis decomposition and normal `get_angles` | **1 (clamped)** | 43 |
-| `1e-6` | Point-to-segment distance in degenerate-triangle containment | **1 (clamped)** | 4,295 |
-| `1e-4` | `FP_QUAT_EPSILON`: axis validation, quaternion exp/log/slerp; also near-zero direction checks | 7 | 429,497 |
-| `0.001` | Squared-distance check for point containment in an oriented rectangle classified as degenerate | 66 | 4,294,967 |
+The affected helpers now preserve the nominal decimal source thresholds with
+wide integer comparisons. A product of raw coordinates retains twice the
+fractional bits of the public type, so the threshold need not be stored in a
+`real` variable first.
 
-The `1e-4` and `0.001` values are above `real`'s resolution; they are rounded,
-not raised to the minimum. For example, 7 `real` raw units equal
-`0.0001068115234375`. `fine` retains nonzero approximations of all four values.
+| Source value | Used for | Current treatment in both formats |
+| --- | --- | --- |
+| `1e-8` | Squared-length checks in quaternion angle/axis decomposition and normal `get_angles` | Compare the unrounded raw sum of squares against `2^(2F) / 100000000`, where `F` is 16 or 32. |
+| `1e-6` | Distance slack in degenerate-triangle containment | Exact collinearity and interval checks; outside the interval, compare squared endpoint distance against `1e-12` using wide integers. |
+| `1e-4` | `FP_QUAT_EPSILON`: axis validation, quaternion exp/log/slerp; also near-zero direction checks | Round to 7 `real` raw units or 429,497 `fine` raw units. |
+| `0.001` | Squared-distance check for point containment in an oriented rectangle classified as degenerate | Round to 66 `real` raw units or 4,294,967 `fine` raw units. |
 
-The `1e-8` checks compare **squared lengths**: their nominal length scale changes
-from `0.0001` to `sqrt(2^-16) = 0.00390625` in `real`, before intermediate
-rounding. Near-degenerate branch decisions can therefore differ from the source.
-These thresholds are not bounds on total numerical error.
+Thus the `1e-8` squared-length threshold retains its nominal `0.0001` length
+scale. The old clamp had raised that scale to `0.00390625` in `real`.
+`get_angles` uses `atan2` for the projection angle, and quaternion decomposition
+uses `2*atan2(length(xyz), w)` plus wide normalization, preserving small rotations
+when `w` rounds to 1. Source fallback conventions still apply below the threshold.
+These decisions do not define a universal error bound or a gameplay contact margin.
 
 Original quaternion inversion also used `FP_EPSILON2`, whose definition was
 absent from the supplied files, so its original magnitude cannot be confirmed.
@@ -279,7 +283,8 @@ identities, rotation/matrix round trips, boundary conventions, degeneracies,
 aliasing, packing, and integer rasterization. Every non-template method of the
 geometry classes is explicitly instantiated for both scalar types.
 
-[geometry.csv](../tests/reference/geometry.csv) contains **5,386 frozen cases**.
+[geometry.csv](../tests/reference/geometry.csv) contains **5,530 frozen cases**,
+including 144 threshold cases added after the tolerance assessment.
 Normal tests compare every raw output exactly. The writer always compiles with
 `FXP_PORTABLE_ONLY=1` and `FXP_DISABLE_SSE2=1`; native integer acceleration and
 other compilers are tested against the portable baseline. Input generation
@@ -287,7 +292,10 @@ specifies evaluation order as well as the random seed.
 
 The frozen file records implementation behavior; independent expected identities
 and geometric invariants are checked by the unit tests. The original scalar
-oracle/reference files are unchanged by this extension. To deliberately revise
+oracle/reference files are unchanged by this extension. The tolerance suite adds
+1,448 independent high-precision angle/axis cases and 68,400 integer triangle
+incidence checks; see [coverage and limits](geometry-tolerances.md).
+To deliberately revise
 the geometry baseline after reviewing an algorithm change:
 
 ```sh

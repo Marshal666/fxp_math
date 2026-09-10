@@ -1,18 +1,19 @@
 # Validation record
 
 Verified on Linux x86-64 with CMake 3.28.3 and GoogleTest 1.15.2. Each full suite
-contains **45 CTest tests**, including **51,004 bit-exact scalar reference cases**,
-the same 51,004 inputs checked against independent expected values, and **5,386
-bit-exact geometry cases**. Exact
+contains **56 CTest tests**, including **51,004 bit-exact scalar reference cases**,
+the same 51,004 inputs checked against independent expected values, **5,530
+bit-exact geometry cases**, **1,448 independent geometry angle/axis cases**, and
+**68,400 integer triangle-incidence checks**. Exact
 operations allow zero error; transcendental oracle tolerances are documented in
 [numerics.md](numerics.md).
 
 | Configuration | Result |
 | --- | --- |
-| GCC 13.3.0, Debug, Ninja, native wide arithmetic, SSE2 enabled | 45/45 passed |
-| Clang 18.1.3, Release, native wide arithmetic, SSE2 enabled | 45/45 passed |
-| GCC 13.3.0, Release, portable wide arithmetic, SSE2 disabled | 45/45 passed |
-| GCC 13.3.0, Debug, portable wide arithmetic, SSE2 enabled, AddressSanitizer + UndefinedBehaviorSanitizer | 45/45 passed |
+| GCC 13.3.0, Debug, Ninja, native wide arithmetic, SSE2 enabled | 56/56 passed |
+| Clang 18.1.3, Release, native wide arithmetic, SSE2 enabled | 56/56 passed |
+| GCC 13.3.0, Release, portable wide arithmetic, SSE2 disabled | 56/56 passed |
+| GCC 13.3.0, Debug, portable wide arithmetic, SSE2 enabled, AddressSanitizer + UndefinedBehaviorSanitizer | 56/56 passed |
 | Separate consumer using `add_subdirectory` | Built and ran |
 | Separate consumer using an installed `find_package(fxp)` package | Built and ran |
 | Every public header included independently | Compiled with GCC and Clang |
@@ -25,13 +26,22 @@ originally reproduced all 51,004 scalar reference rows exactly. The later
 does not change any scalar reference rows. Batch tests compare scalar/SSE2
 addition and subtraction directly against the frozen scalar reference file.
 
-The geometry extension was validated on 2026-09-09 using the four configurations
-above. New geometry headers compile independently; all non-template methods of
+The initial 45-test geometry extension was validated on 2026-09-09 using the four
+configurations above. New geometry headers compile independently; all non-template methods of
 the geometry classes are explicitly instantiated for both formats. Tests cover
 identities, matrix/rotation round trips, aliases, degeneracies, boundary rules,
 packing, rasterization, and all 5,386 portable-scalar reference records. See the
 [geometry guide](geometry.md) for preserved conventions, deliberate fixes, and
 the numerical limitations of composite saturated arithmetic.
+
+On 2026-09-10, the [tolerance assessment](geometry-tolerances.md) added focused
+accuracy and boundary tests. Seven of the first nine new tests failed before
+the fixes. After replacing the clamped source cutoffs with wide comparisons,
+stabilizing angle extraction, and using exact triangle incidence, all 56 tests
+passed in each configuration above. Geometry reference v2 preserves every old
+row and appends 144 threshold cases. Its independent oracle was generated with
+110-digit mpmath and integer threshold arithmetic; no floating-point operations
+were added to the C++ library or its geometry tests.
 
 The reported VS Code failures were reproduced after the main build changed from
 Unix Makefiles to Ninja while old nested compile-rejection caches remained.

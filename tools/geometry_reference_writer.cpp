@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
     try {
         const auto rows = geometry_reference::generate();
         std::ofstream out(argv[1]);
-        out << "# fxp geometry reference v1 (portable scalar C++); format,case,operation,raw outputs\n";
+        out << "# fxp geometry reference v2 (portable scalar C++); format,case,operation,raw outputs\n";
         for (const auto &row : rows)
             out << row << '\n';
         out.flush();

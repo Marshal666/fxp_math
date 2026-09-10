@@ -254,8 +254,10 @@ See the [geometry API and migration guide](docs/geometry.md) for examples,
 the preserved rotation/boundary conventions, source bug fixes, and numerical
 limits. It also summarizes [unusual source conventions](docs/geometry.md#differences-from-common-library-conventions)
 and [source tolerances below `real`'s resolution](docs/geometry.md#source-tolerances-versus-fixed-point-resolution).
+The [tolerance assessment](docs/geometry-tolerances.md) documents the accuracy
+regressions found near those thresholds, their fixes, and independent tests.
 A separate [portable scalar geometry reference](tests/reference/geometry.csv)
-contains 5,386 cases for exact cross-platform comparison.
+contains 5,530 cases for exact cross-platform comparison.
 
 ## Determinism tests
 

@@ -5,6 +5,51 @@
 #include <cstdint>
 
 namespace fxp {
+namespace geometry_detail {
+// Compare an exact raw sum of squares with 1/Denominator in physical units.
+// Keeping the extra fractional bits avoids rounding 1e-8 or its operands to zero.
+template <class T, std::uint64_t Denominator, std::size_t N>
+inline bool squared_magnitudes_below(const std::array<std::uint64_t, N> &magnitudes) {
+    static_assert(Denominator != 0, "a squared threshold needs a positive denominator");
+    constexpr auto divided =
+        detail::div_portable(detail::shl({0, 1}, 2 * T::fractional_bits), {0, Denominator});
+    // Integer sum < rational threshold is equivalent to sum < ceil(threshold).
+    constexpr auto limit =
+        detail::add(divided.quotient, {0, static_cast<std::uint64_t>(divided.remainder != detail::u128{})});
+    detail::u128 sum{};
+    for (const auto magnitude : magnitudes) {
+        const auto square = detail::mul(magnitude, magnitude);
+        if (square >= detail::sub(limit, sum))
+            return false;
+        sum = detail::add(sum, square);
+    }
+    return true;
+}
+
+struct raw_difference {
+    std::uint64_t magnitude;
+    bool negative;
+};
+inline raw_difference difference(std::int64_t a, std::int64_t b) {
+    const auto ua = static_cast<std::uint64_t>(a), ub = static_cast<std::uint64_t>(b);
+    return a < b ? raw_difference{ub - ua, true} : raw_difference{ua - ub, false};
+}
+template <class T> inline int orientation_sign(const vec2<T> &a, const vec2<T> &b, const vec2<T> &c) {
+    const auto x1 = difference(b.x.raw_value(), a.x.raw_value());
+    const auto y1 = difference(b.y.raw_value(), a.y.raw_value());
+    const auto x2 = difference(c.x.raw_value(), a.x.raw_value());
+    const auto y2 = difference(c.y.raw_value(), a.y.raw_value());
+    const auto left = detail::mul(x1.magnitude, y2.magnitude);
+    const auto right = detail::mul(y1.magnitude, x2.magnitude);
+    const int left_sign = left == detail::u128{} ? 0 : (x1.negative != y2.negative ? -1 : 1);
+    const int right_sign = right == detail::u128{} ? 0 : (y1.negative != x2.negative ? -1 : 1);
+    // Compare signed products instead of subtracting them into a narrow result.
+    if (left_sign != right_sign)
+        return left_sign < right_sign ? -1 : 1;
+    return left == right ? 0 : (left < right ? -left_sign : left_sign);
+}
+} // namespace geometry_detail
+
 template <class T = real> class quat;
 template <class T> struct oriented_rect;
 template <class T> bool is_almost_zero(T, T);
@@ -1104,39 +1149,27 @@ template <class T> inline bool quat<T>::inverse() {
 }
 
 template <class T> inline void quat<T>::decomp_angle_axis(T *pfAngle, vec3<T> *pvAxis) const {
-
-    T len = length_squared(components_.x, components_.y, components_.z);
-    if (len > geometry_detail::tolerance<T>("1e-8")) {
-        *pfAngle = T(2) * acos(geometry_detail::clamp(components_.w, T(-1), T(1)));
-        len = T(1) / T(sqrt(len));
-        pvAxis->x = components_.x * len;
-        pvAxis->y = components_.y * len;
-        pvAxis->z = components_.z * len;
-    } else {
-
+    const vec3<T> axis(components_.x, components_.y, components_.z);
+    if (geometry_detail::squared_magnitudes_below<T, UINT64_C(100000000)>(std::array<std::uint64_t, 3>{
+            detail::magnitude(axis.x.raw_value()), detail::magnitude(axis.y.raw_value()),
+            detail::magnitude(axis.z.raw_value())})) {
         *pfAngle = T(0);
-        pvAxis->x = T(1);
-        pvAxis->y = T(0);
-        pvAxis->z = T(0);
+        *pvAxis = vec3<T>(1, 0, 0);
+        return;
     }
+    // acos(w) loses small rotations when w rounds to +/-1. atan2 keeps the
+    // information stored in the vector part; normalization uses wide ratios.
+    *pfAngle = T(2) * atan2(length(axis), components_.w);
+    *pvAxis = normalized(axis);
 }
 template <class T>
 inline void quat<T>::decomp_angle_axis(T *pfAngle, T *pfAxisX, T *pfAxisY, T *pfAxisZ) const {
 
-    T len = components_.x * components_.x + components_.y * components_.y + components_.z * components_.z;
-    if (len > geometry_detail::tolerance<T>("1e-8")) {
-        *pfAngle = T(2) * acos(geometry_detail::clamp(components_.w, T(-1), T(1)));
-        len = T(1) / T(sqrt(len));
-        *pfAxisX = components_.x * len;
-        *pfAxisY = components_.y * len;
-        *pfAxisZ = components_.z * len;
-    } else {
-
-        *pfAngle = T(0);
-        *pfAxisX = T(1);
-        *pfAxisY = T(0);
-        *pfAxisZ = T(0);
-    }
+    vec3<T> axis;
+    decomp_angle_axis(pfAngle, &axis);
+    *pfAxisX = axis.x;
+    *pfAxisY = axis.y;
+    *pfAxisZ = axis.z;
 }
 
 template <class T> inline void quat<T>::decomp_euler_matrix(mat4<T> *pRes) const {
@@ -1319,21 +1352,29 @@ template <class T> inline T triangle_area2(const vec2<T> &p1, const vec2<T> &p2,
 template <class T>
 inline bool is_point_inside_triangle(const vec2<T> &p1, const vec2<T> &p2, const vec2<T> &p3,
                                      const vec2<T> &p) {
-    int nSign1 = geometry_detail::sign(triangle_area2(p, p1, p2));
-    int nSign2 = geometry_detail::sign(triangle_area2(p, p2, p3));
-    int nSign3 = geometry_detail::sign(triangle_area2(p, p3, p1));
-    int nSign = geometry_detail::sign(triangle_area2(p1, p2, p3));
+    const int nSign1 = geometry_detail::orientation_sign(p, p1, p2);
+    const int nSign2 = geometry_detail::orientation_sign(p, p2, p3);
+    const int nSign3 = geometry_detail::orientation_sign(p, p3, p1);
+    const int nSign = geometry_detail::orientation_sign(p1, p2, p3);
 
     if (nSign != 0)
         return nSign * nSign1 >= 0 && nSign * nSign2 >= 0 && nSign * nSign3 >= 0;
 
-    else {
-        if (nSign1 == 0 && nSign2 == 0 && nSign3 == 0) {
-            return segment2<T>(p1, p2).get_dist_to_point(p) < geometry_detail::tolerance<T>("1e-6") ||
-                   segment2<T>(p1, p3).get_dist_to_point(p) < geometry_detail::tolerance<T>("1e-6");
-        } else
-            return false;
+    if (nSign1 != 0 || nSign2 != 0 || nSign3 != 0)
+        return false;
+    // All points are collinear: exact interval membership avoids dot products
+    // that round to zero on short segments. Retain the source's endpoint slack.
+    if (p.x >= (std::min)({p1.x, p2.x, p3.x}) && p.x <= (std::max)({p1.x, p2.x, p3.x}) &&
+        p.y >= (std::min)({p1.y, p2.y, p3.y}) && p.y <= (std::max)({p1.y, p2.y, p3.y}))
+        return true;
+    for (const auto &endpoint : {p1, p2, p3}) {
+        if (geometry_detail::squared_magnitudes_below<T, UINT64_C(1000000000000)>(
+                std::array<std::uint64_t, 2>{
+                    geometry_detail::difference(p.x.raw_value(), endpoint.x.raw_value()).magnitude,
+                    geometry_detail::difference(p.y.raw_value(), endpoint.y.raw_value()).magnitude}))
+            return true;
     }
+    return false;
 }
 
 template <class T> inline T segment2<T>::get_dist_to_point(const vec2<T> &point) const {
@@ -1465,18 +1506,16 @@ inline bool intersect_ray_rect(vec2<T> *pvResult, const vec2<T> &vPoint, const v
                                const oriented_rect<T> &rect);
 
 template <class T> inline void get_angles(const vec3<T> &vNormal, T *pfPhi, T *pfTheta) {
-
-    {
-        const T fLen2 = length_squared(vNormal.y, vNormal.z);
-        *pfPhi = fLen2 < geometry_detail::tolerance<T>("1e-8") ? 0 : vNormal.z / sqrt(fLen2);
-        *pfPhi = -geometry_detail::sign(vNormal.y) * acos(geometry_detail::clamp(*pfPhi, -T(1), T(1)));
-    }
-
-    {
-        const T fLen2 = length_squared(vNormal.x, vNormal.z);
-        *pfTheta = fLen2 < geometry_detail::tolerance<T>("1e-8") ? 0 : vNormal.z / sqrt(fLen2);
-        *pfTheta = geometry_detail::sign(vNormal.x) * acos(geometry_detail::clamp(*pfTheta, -T(1), T(1)));
-    }
+    const auto projected_angle = [&](T component) {
+        if (component == 0)
+            return T{}; // Preserve sign(0) * acos(...), including negative Z.
+        if (geometry_detail::squared_magnitudes_below<T, UINT64_C(100000000)>(std::array<std::uint64_t, 2>{
+                detail::magnitude(component.raw_value()), detail::magnitude(vNormal.z.raw_value())}))
+            return copysign(acos(T{}), component);
+        return atan2(component, vNormal.z);
+    };
+    *pfPhi = -projected_angle(vNormal.y);
+    *pfTheta = projected_angle(vNormal.x);
 }
 
 template <class T> inline void make_orientation(quat<T> *pQuat, const vec3<T> &vNormal) {

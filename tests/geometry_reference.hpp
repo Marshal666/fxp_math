@@ -1,5 +1,6 @@
 #pragma once
 #include <fxp/geometry_misc.hpp>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -108,10 +109,36 @@ template <class T> void cases(std::vector<std::string> &rows) {
                        fields(normalized(v)));
     }
 }
+template <class T> void tolerance_cases(std::vector<std::string> &rows) {
+    using namespace fxp;
+    const auto cutoff = static_cast<std::int64_t>(T::scale / UINT64_C(10000));
+    const std::array<std::int64_t, 18> steps = {
+        0, 1, 4, 5, 6, 7, 8, 64, 128, 181, 182, 256, 320, 512, 1024, cutoff - 1, cutoff, cutoff + 1};
+    for (std::size_t i = 0; i < steps.size(); ++i) {
+        const auto value = T::from_raw(steps[i]);
+        auto emit = [&](const char *operation, const auto &result) {
+            rows.push_back(std::to_string(T::fractional_bits) + ",tolerance" + std::to_string(i) + ',' +
+                           operation + ',' + fields(result));
+        };
+        T phi, theta;
+        get_angles(vec3<T>(1, value, value), &phi, &theta);
+        emit("normal_angles", vec2<T>(phi, theta));
+        const quat<T> q(value, vec3<T>(0, 0, 1));
+        T angle;
+        vec3<T> axis;
+        q.decomp_angle_axis(&angle, &axis);
+        emit("angle_axis", vec4<T>(axis, angle));
+        const vec2<T> a(1, 1), b(T(1) + value, T(1) + value), c(T(1) + value * 2, T(1) + value * 2);
+        emit("degenerate_triangle_on", is_point_inside_triangle(a, c, a, b));
+        emit("degenerate_triangle_off", is_point_inside_triangle(a, c, a, vec2<T>(b.x, b.y + T::epsilon())));
+    }
+}
 inline std::vector<std::string> generate() {
     std::vector<std::string> rows;
     cases<fxp::real>(rows);
     cases<fxp::fine>(rows);
+    tolerance_cases<fxp::real>(rows);
+    tolerance_cases<fxp::fine>(rows);
     return rows;
 }
 } // namespace geometry_reference
